@@ -22,7 +22,7 @@ const addDir = (list, options, dir, callback) => {
 		if(err) return callback(err);
 		files.forEach((elem) => {
 			const file = dir + '/' + elem;
-			const info = fs.statSync(file);
+			const info = fs.lstatSync(file, {});
 			info.relativePath = path.relative(options.cwd, file);
 			const check = info.isDirectory() ? './' + info.relativePath + '/' : './' + info.relativePath;
 			if(shouldInclude2(check, options)) {
