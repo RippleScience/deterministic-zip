@@ -28,7 +28,7 @@ const addDir = (list, options, dir, callback) => {
 			if(shouldInclude2(check, options)) {
 				info.filename = elem
 				info.absolutePath = path.resolve(file);
-				list.push(info);	
+				list.push(info);
 			}
 			if (info.isDirectory()) {
 				dirs.push(file);
@@ -150,13 +150,13 @@ class Zipfile {
 		} else {
 			const directoryTempl = this.fileCentralDirTempl;
 			const filenameBuffer = fromBuffer(file.relativePath)
-			directoryTempl.writeUIntLE(file.checksum, 16, 4); //crc-32
+			directoryTempl.writeUIntLE(parseInt(file.checksum.toString('hex'), 16), 16, 4); //crc-32
 			directoryTempl.writeInt32LE(file.compressedSize, 20); //compressedSize
 			directoryTempl.writeInt32LE(file.uncompressedSize, 24); //uncompressedSize
 			directoryTempl.writeInt16LE(filenameBuffer.length, 28); //filename length
 			directoryTempl.writeInt32LE(file.headerOffset, 42);
 			const buffers = [directoryTempl, filenameBuffer]
-			async.eachSeries(buffers, (buffer, cb) => { this._write(buffer, cb) }, callback);			
+			async.eachSeries(buffers, (buffer, cb) => { this._write(buffer, cb) }, callback);
 		}
 	}
 
@@ -199,7 +199,7 @@ const zip = (dir, destination, options, callback) => {
 	getFiles(dir, options , (err, files) => {
 		const zipfile = new Zipfile(files, destination);
 		zipfile.zip(callback);
-	})	
+	})
 }
 
 module.exports = zip
