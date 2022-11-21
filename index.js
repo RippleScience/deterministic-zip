@@ -4,10 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const async = require('async');
 const DeflateCRC32Stream = require('crc32-stream').DeflateCRC32Stream;
-const minimatch = require("minimatch")
+const minimatch = require("minimatch");
+const { Readable } = require('stream');
 
 const shouldInclude2 = (file, options) => {
 	const include = options.includes.find((pattern) => minimatch(file, pattern, {matchBase: true}));
+
 	if(include) {
 		const exclude = options.excludes.find((pattern) => minimatch(file, pattern, {matchBase: true}));
 		return include && !exclude
@@ -24,10 +26,10 @@ const addDir = (list, options, dir, callback) => {
 			const file = dir + '/' + elem;
 			const info = fs.lstatSync(file, {});
 			info.relativePath = path.relative(options.cwd, file);
+			info.absolutePath = path.resolve(file);
 			const check = info.isDirectory() ? './' + info.relativePath + '/' : './' + info.relativePath;
-			if(shouldInclude2(check, options)) {
+			if(shouldInclude2(info.absolutePath, options)) {
 				info.filename = elem
-				info.absolutePath = path.resolve(file);
 				list.push(info);
 			}
 			if (info.isDirectory()) {
@@ -124,11 +126,19 @@ class Zipfile {
 
 	_writeEntry(file, callback) {
 		file.headerOffset = this.index;
-		if(file.isFile() ) {
+		if(file.isFile() || file.isSymbolicLink()) {
 			this.numberOfFiles++
 			this._writeFileHeader(file, (err) => {
 				if(err) return callback(err);
-				const readStream = fs.createReadStream(file.absolutePath);
+
+				let readStream;
+				if (file.isSymbolicLink()) {
+					const dest = fs.readlinkSync(file.absolutePath);
+					readStream = Readable.from([dest]);
+				} else {
+					readStream = fs.createReadStream(file.absolutePath);
+				}
+
 				const checksum = new DeflateCRC32Stream();
 				checksum.on('end', () => {
 					file.checksum = checksum.digest();
@@ -150,6 +160,7 @@ class Zipfile {
 		} else {
 			const directoryTempl = this.fileCentralDirTempl;
 			const filenameBuffer = fromBuffer(file.relativePath)
+
 			directoryTempl.writeUIntLE(parseInt(file.checksum.toString('hex'), 16), 16, 4); //crc-32
 			directoryTempl.writeInt32LE(file.compressedSize, 20); //compressedSize
 			directoryTempl.writeInt32LE(file.uncompressedSize, 24); //uncompressedSize
